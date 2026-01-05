@@ -86,3 +86,14 @@ class ChartResponse(BaseModel):
     sales: List[int]
     expenses: List[int]
 
+
+class StaffDashboardResponse(BaseModel):
+    sbu: Dict[str, str | int]
+    sales_today: int
+    fixed_costs: FixedCostsSchema
+    variable_costs: Dict[str, int]
+    total_expenses: int
+    net_profit: int
+    performance_percent: float
+    performance_status: str
+
