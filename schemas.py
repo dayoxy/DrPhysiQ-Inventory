@@ -87,6 +87,13 @@ class ChartResponse(BaseModel):
     expenses: List[int]
 
 
+class FixedCostsSchema(BaseModel):
+    personnel_cost: int
+    rent: int
+    electricity: int
+    total_fixed: int
+
+
 class StaffDashboardResponse(BaseModel):
     sbu: Dict[str, str | int]
     sales_today: int
