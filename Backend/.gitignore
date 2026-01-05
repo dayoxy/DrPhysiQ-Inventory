@@ -1,0 +1,17 @@
+# Ignore frontend completely
+frontend/
+Frontend/
+client/
+ui/
+
+# Python
+__pycache__/
+*.pyc
+.env
+venv/
+.venv/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
