@@ -136,7 +136,7 @@ def create_sbu(
     return {"message": "SBU created successfully"}
 
 
-@app.post("/sales")
+@app.post("/staff/sales")
 def create_sale(
     amount: int,
     sale_date: date,
@@ -146,12 +146,15 @@ def create_sale(
     if current_user.role != "staff":
         raise HTTPException(status_code=403, detail="Staff only")
 
+    if not current_user.sbu_id:
+        raise HTTPException(status_code=400, detail="Staff not assigned to SBU")
+
     sale = Sale(
         id=str(uuid.uuid4()),
-        sbu_id=current_user.department_id, # ✅ matches model
-        user_id = Column(String, ForeignKey("users.id"))
+        sbu_id=current_user.sbu_id,
         amount=amount,
-        date=sale_date
+        date=sale_date,
+        created_by=current_user.id
     )
 
     db.add(sale)
