@@ -613,7 +613,7 @@ def get_sbu_chart(
 
 
 @app.post("/staff/expenses")
-def create_staff_expense(
+def create_expense(
     payload: StaffExpenseSchema,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -621,22 +621,12 @@ def create_staff_expense(
     if current_user.role != "staff":
         raise HTTPException(status_code=403, detail="Staff only")
 
-    if not current_user.department_id:
+    if not current_user.sbu_id:
         raise HTTPException(status_code=400, detail="Staff not assigned to SBU")
 
-    allowed_categories = {
-        "consumables",
-        "general_expenses",
-        "utilities",
-        "miscellaneous"
-    }
-
-    if payload.category not in allowed_categories:
-        raise HTTPException(status_code=400, detail="Invalid category")
-
     expense = Expense(
-        id=str(uuid4()),
-        sbu_id=current_user.department_id,
+        id=str(uuid.uuid4()),
+        sbu_id=current_user.sbu_id,
         category=payload.category,
         amount=payload.amount,
         effective_from=payload.date,
@@ -645,17 +635,9 @@ def create_staff_expense(
     )
 
     db.add(expense)
+    db.commit()
 
-    try:
-        db.commit()
-    except IntegrityError:
-        db.rollback()
-        raise HTTPException(
-            status_code=400,
-            detail="Expense already recorded for this category today"
-        )
-
-    return {"message": "Expense recorded successfully"}
+    return {"message": "Expense recorded"}
 
 
 @app.get("/staff/expenses/history")
