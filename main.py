@@ -148,7 +148,7 @@ def create_sale(
 
     sale = Sale(
         id=str(uuid.uuid4()),
-        department_id=current_user.department_id,
+        sbu_id=current_user.department_id,  # ✅ matches model
         user_id=current_user.id,
         amount=amount,
         date=sale_date
