@@ -137,7 +137,7 @@ def create_sbu(
 
 
 @app.post("/staff/sales")
-def create_sale(
+def create_or_update_sales(
     payload: SaleCreateSchema,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -160,7 +160,7 @@ def create_sale(
     db.add(sale)
     db.commit()
 
-    return {"message": "Sale recorded successfully"}
+    return {"message": "Sales saved successfully"}
     
 @app.post("/admin/set-expense")
 def set_fixed_expense(
