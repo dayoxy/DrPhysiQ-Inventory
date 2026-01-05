@@ -60,3 +60,28 @@ class ExpenseResponseSchema(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# ================= REPORTS =================
+class DailyReportResponse(BaseModel):
+    date: date
+    sales: int
+    expenses: int
+    net_profit: int
+
+
+class SBUReportResponse(BaseModel):
+    period: str
+    date_range: Dict[str, date]
+    total_sales: int
+    total_expenses: int
+    net_profit: int
+    performance_percent: float
+
+
+# ================= CHART =================
+class ChartResponse(BaseModel):
+    labels: List[str]
+    sales: List[int]
+    expenses: List[int]
+
