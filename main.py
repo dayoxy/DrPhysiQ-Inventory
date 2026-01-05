@@ -138,8 +138,7 @@ def create_sbu(
 
 @app.post("/staff/sales")
 def create_sale(
-    amount: int,
-    sale_date: date,
+    payload: SaleCreateSchema,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -152,16 +151,17 @@ def create_sale(
     sale = Sale(
         id=str(uuid.uuid4()),
         sbu_id=current_user.sbu_id,
-        amount=amount,
-        date=sale_date,
+        amount=payload.amount,
+        date=payload.sale_date,
+        notes=payload.notes,
         created_by=current_user.id
     )
 
     db.add(sale)
     db.commit()
 
-    return {"message": "Sale recorded"}
-
+    return {"message": "Sale recorded successfully"}
+    
 @app.post("/admin/set-expense")
 def set_fixed_expense(
     department_id: str,
