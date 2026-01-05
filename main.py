@@ -17,7 +17,7 @@ from auth import verify_password, create_access_token, get_current_user, hash_pa
 from datetime import date, timedelta
 from models import Expense
 from sqlalchemy import func, and_
-from schemas import CreateStaffSchema, CreateSBUSchema, LoginSchema, SaleCreateSchema, SalesSchema, StaffExpenseSchema, StaffDashboardResponse
+from schemas import CreateStaffSchema, CreateSBUSchema, LoginSchema, SaleCreateSchema, SalesSchema, StaffExpenseSchema, StaffDashboardResponse, DailyReportResponse
 import uuid
 from uuid import uuid4
 
@@ -211,7 +211,10 @@ def get_active_expenses(
         "total_expenses": total
     }
 
-@app.get("/report/daily")
+@app.get(
+    "/report/daily",
+    response_model=DailyReportResponse
+)
 def daily_report(
     department_id: str,
     report_date: date,
@@ -219,30 +222,25 @@ def daily_report(
     current_user: User = Depends(get_current_user)
 ):
     sales_total = (
-        db.query(func.sum(Sale.amount))
-        .filter(
-            Sale.department_id == department_id,
-            Sale.date == report_date
-        )
+        db.query(func.coalesce(func.sum(Sale.amount), 0))
+        .filter(Sale.sbu_id == department_id, Sale.date == report_date)
         .scalar()
-    ) or 0
+    )
 
     expenses_total = (
-        db.query(func.sum(Expense.amount))
+        db.query(func.coalesce(func.sum(Expense.amount), 0))
         .filter(
-            Expense.department_id == department_id,
+            Expense.sbu_id == department_id,
             Expense.effective_from <= report_date
         )
         .scalar()
-    ) or 0
-
-    net_profit = sales_total - expenses_total
+    )
 
     return {
         "date": report_date,
         "sales": sales_total,
         "expenses": expenses_total,
-        "net_profit": net_profit
+        "net_profit": sales_total - expenses_total
     }
 
 
