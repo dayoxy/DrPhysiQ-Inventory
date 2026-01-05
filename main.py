@@ -613,7 +613,7 @@ def get_sbu_chart(
 
 
 @app.post("/staff/expenses")
-def create_expense(
+def create_staff_expense(
     payload: StaffExpenseSchema,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -637,7 +637,7 @@ def create_expense(
     db.add(expense)
     db.commit()
 
-    return {"message": "Expense recorded"}
+    return {"message": "Expense recorded successfully"}
 
 
 @app.get("/staff/expenses/history")
