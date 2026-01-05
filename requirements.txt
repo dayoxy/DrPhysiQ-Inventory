@@ -1,10 +1,9 @@
 fastapi
 uvicorn
 sqlalchemy
-mysql-connector-python
+pymysql
 passlib[bcrypt]
 python-jose
 python-dotenv
 pydantic
 python-multipart
-pymysql
