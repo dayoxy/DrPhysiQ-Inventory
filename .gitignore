@@ -4,16 +4,38 @@ Frontend/
 client/
 ui/
 
+<<<<<<< HEAD
 # Python backend
+=======
+# Python
+>>>>>>> b1b6a26 (Update backend)
 __pycache__/
 *.pyc
 .env
 venv/
 .venv/
 
+<<<<<<< HEAD
 # OS / Editor
 .vscode/
 .idea/
 .DS_Store
 
 
+=======
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+>>>>>>> b1b6a26 (Update backend)
+# Python
+__pycache__/
+*.pyc
+.env
+venv/
+.venv/
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
