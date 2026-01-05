@@ -7,9 +7,10 @@ from fastapi import Header
 
 from database import get_db
 from models import User
+import os
 
 # ================= CONFIG =================
-SECRET_KEY = "CHANGE_THIS_TO_A_RANDOM_SECRET"
+SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
 
