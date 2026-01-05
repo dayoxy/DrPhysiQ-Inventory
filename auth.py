@@ -23,7 +23,7 @@ def hash_password(password: str):
     return pwd_context.hash(password[:72])
 
 
-def verify_password(plain_password: str, hashed_password: str):
+def verify_password(plain_password: str, hashed_password: str) -> bool:
     print("PASSWORD LENGTH:", len(plain_password))
     return pwd_context.verify(plain_password[:72], hashed_password)
 
