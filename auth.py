@@ -19,7 +19,7 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 # ================= PASSWORD =================
-def hash_password(password: str):
+def hash_password(password: str) -> str:
     return pwd_context.hash(password[:72])
 
 
