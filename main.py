@@ -17,7 +17,7 @@ from auth import verify_password, create_access_token, get_current_user, hash_pa
 from datetime import date, timedelta
 from models import Expense
 from sqlalchemy import func, and_
-from schemas import CreateStaffSchema, CreateSBUSchema, LoginSchema, CreateSaleSchema, SalesSchema, StaffExpenseSchema
+from schemas import CreateStaffSchema, CreateSBUSchema, LoginSchema, SaleCreateSchema, SalesSchema, StaffExpenseSchema
 import uuid
 from uuid import uuid4
 
