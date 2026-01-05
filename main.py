@@ -27,6 +27,14 @@ from uuid import uuid4
 # ✅ APP MUST BE DEFINED BEFORE ROUTES
 app = FastAPI(title="Inventory System API", swagger_ui_parameters={"persistAuthorization": True})
 
+@app.get("/")
+def root():
+    return {
+        "status": "ok",
+        "service": "DrPhysiQ Inventory API",
+        "version": "1.0.0"
+    }
+
 
 
 app.add_middleware(
