@@ -2,18 +2,19 @@ from pydantic import BaseModel, Field
 from datetime import date
 from typing import Optional
 
+
 # ================= AUTH =================
 class LoginSchema(BaseModel):
     username: str
     password: str
 
 
-# ================= STAFF =================
+# ================= USER =================
 class CreateStaffSchema(BaseModel):
     full_name: str
     username: str
     password: str
-    department_id: str
+    sbu_id: str
 
 
 # ================= SBU =================
@@ -25,20 +26,37 @@ class CreateSBUSchema(BaseModel):
 
 
 # ================= SALES =================
-class CreateSaleSchema(BaseModel):
-    amount: int
-    date: Optional[date] = None
+class SaleCreateSchema(BaseModel):
+    amount: int = Field(..., gt=0, description="Sale amount")
+    sale_date: date = Field(..., description="Date of sale (YYYY-MM-DD)")
     notes: Optional[str] = None
 
 
-class SalesSchema(BaseModel):
+class SaleResponseSchema(BaseModel):
+    id: str
     amount: int
     date: date
-    notes: Optional[str] = None
 
-# ================= STAFF EXPENSES =================
+    class Config:
+        from_attributes = True
+
+
+# ================= EXPENSES =================
 class StaffExpenseSchema(BaseModel):
-    category: str            # consumables | general | utilities | miscellaneous
-    amount: int
+    category: str = Field(
+        ...,
+        description="consumables | general_expenses | utilities | miscellaneous"
+    )
+    amount: int = Field(..., gt=0)
     date: date
     notes: Optional[str] = None
+
+
+class ExpenseResponseSchema(BaseModel):
+    id: str
+    category: str
+    amount: int
+    effective_from: date
+
+    class Config:
+        from_attributes = True
