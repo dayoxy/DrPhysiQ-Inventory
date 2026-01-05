@@ -17,7 +17,7 @@ from auth import verify_password, create_access_token, get_current_user, hash_pa
 from datetime import date, timedelta
 from models import Expense
 from sqlalchemy import func, and_
-from schemas import CreateStaffSchema, CreateSBUSchema, LoginSchema, SaleCreateSchema, SalesSchema, StaffExpenseSchema
+from schemas import CreateStaffSchema, CreateSBUSchema, LoginSchema, SaleCreateSchema, SalesSchema, StaffExpenseSchema, StaffDashboardResponse
 import uuid
 from uuid import uuid4
 
@@ -358,7 +358,11 @@ def custom_openapi():
 app.openapi = custom_openapi
 
 
-@app.get("/staff/my-sbu")
+
+@app.get(
+    "/staff/my-sbu",
+    response_model=StaffDashboardResponse
+)
 def get_staff_sbu_dashboard(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -366,28 +370,23 @@ def get_staff_sbu_dashboard(
     if current_user.role != "staff":
         raise HTTPException(status_code=403, detail="Staff only")
 
-    if not current_user.department_id:
-        raise HTTPException(status_code=400, detail="Staff not assigned to any SBU")
+    if not current_user.sbu_id:
+        raise HTTPException(status_code=400, detail="Staff not assigned to SBU")
 
-    sbu = db.query(SBU).filter(SBU.id == current_user.department_id).first()
+    sbu = db.query(SBU).filter(SBU.id == current_user.sbu_id).first()
     if not sbu:
         raise HTTPException(status_code=404, detail="SBU not found")
 
     today = date.today()
 
-    # 🔹 SALES
     sales_today = (
         db.query(func.coalesce(func.sum(Sale.amount), 0))
         .filter(Sale.sbu_id == sbu.id, Sale.date == today)
         .scalar()
     )
 
-    # 🔹 VARIABLE EXPENSES (STAFF)
-    variable_expenses = (
-        db.query(
-            Expense.category,
-            func.coalesce(func.sum(Expense.amount), 0)
-        )
+    variable_rows = (
+        db.query(Expense.category, func.coalesce(func.sum(Expense.amount), 0))
         .filter(
             Expense.sbu_id == sbu.id,
             Expense.effective_from == today
@@ -396,40 +395,35 @@ def get_staff_sbu_dashboard(
         .all()
     )
 
-    expense_map = {
+    variable_costs = {
         "consumables": 0,
         "general_expenses": 0,
         "utilities": 0,
         "miscellaneous": 0
     }
 
-    for category, amount in variable_expenses:
-        expense_map[category] = amount
+    for cat, amt in variable_rows:
+        variable_costs[cat] = amt
 
-    # 🔹 FIXED COSTS (ADMIN)
     personnel = sbu.personnel_cost or 0
     rent = sbu.rent or 0
     electricity = sbu.electricity or 0
     fixed_total = personnel + rent + electricity
 
-    variable_total = sum(expense_map.values())
+    variable_total = sum(variable_costs.values())
     total_expenses = fixed_total + variable_total
-
     net_profit = sales_today - total_expenses
 
     performance = (
-        
         round((sales_today / sbu.daily_budget) * 100, 2)
-        if sbu.daily_budget > 0
-        else 0
+        if sbu.daily_budget > 0 else 0
     )
 
-    if performance >= 100:
-        performance_status = "Excellent"
-    elif performance >= 80:
-        performance_status = "warning"
-    else:
-        performance_status = "Critical"
+    status = (
+        "Excellent" if performance >= 100
+        else "warning" if performance >= 80
+        else "Critical"
+    )
 
     return {
         "sbu": {
@@ -444,11 +438,11 @@ def get_staff_sbu_dashboard(
             "electricity": electricity,
             "total_fixed": fixed_total
         },
-        "variable_costs": expense_map,
+        "variable_costs": variable_costs,
         "total_expenses": total_expenses,
         "net_profit": net_profit,
         "performance_percent": performance,
-        "performance_status": performance_status
+        "performance_status": status
     }
 
 
