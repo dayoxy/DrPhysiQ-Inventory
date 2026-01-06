@@ -85,3 +85,16 @@ class Expense(Base):
 
     sbu = relationship("SBU", back_populates="expenses")
     staff = relationship("User")
+
+
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+
+    id = Column(String, primary_key=True)
+    user_id = Column(String, ForeignKey("users.id"))
+    action = Column(String, nullable=False)
+    entity = Column(String)
+    created_at = Column(DateTime, server_default=func.now())
+
+    user = relationship("User")
+
