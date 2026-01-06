@@ -26,10 +26,6 @@ app = FastAPI(
     swagger_ui_parameters={"persistAuthorization": True}
 )
 
-@app.get("/")
-def root():
-    return {"status": "ok", "service": "DrPhysiQ Inventory API"}
-
 # ---------------- CORS ----------------
 app.add_middleware(
     CORSMiddleware,
