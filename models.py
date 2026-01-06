@@ -19,11 +19,12 @@ class User(Base):
     __tablename__ = "users"
 
     id = Column(String(36), primary_key=True)
-    full_name = Column(String(150), nullable=False)  # ✅ ADD THIS
+    full_name = Column(String(150), nullable=False)
     username = Column(String(100), unique=True, nullable=False)
     password_hash = Column(String(255), nullable=False)
     role = Column(String(20), nullable=False)
 
+    is_active = Column(Boolean, default=True)          # ✅ ADD THIS
     must_change_password = Column(Boolean, default=True)
 
     sbu_id = Column(String, ForeignKey("sbus.id"), nullable=True)
