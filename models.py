@@ -103,3 +103,7 @@ class AuditLog(Base):
 
     user = relationship("User")
 
+class ChangePasswordSchema(BaseModel):
+    old_password: str
+    new_password: str
+
