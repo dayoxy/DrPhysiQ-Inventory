@@ -238,6 +238,9 @@ def list_staff(
 
 
 # ---------------- STAFF DASHBOARD ----------------
+from datetime import date
+from fastapi import HTTPException
+
 @app.get("/staff/my-sbu", response_model=StaffDashboardResponse)
 def staff_dashboard(
     current_user: User = Depends(get_current_user),
@@ -316,6 +319,7 @@ def staff_dashboard(
         "net_profit": net_profit,
         "performance_percent": performance,
         "performance_status": status
+    }
 
         
 # ---------------- ADMIN SBU REPORT (WITH STAFF BREAKDOWN) ----------------
