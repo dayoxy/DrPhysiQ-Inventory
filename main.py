@@ -56,6 +56,7 @@ def login(payload: LoginSchema, db: Session = Depends(get_db)):
         "token_type": "bearer",
         "role": user.role,
         "username": user.username
+        "must_change_password": user.must_change_password 
     }
 
 # ---------------- ADMIN: CREATE STAFF ----------------
