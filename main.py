@@ -653,7 +653,23 @@ def staff_sbu_report(
         "performance_percent": performance
     }
 
+@app.get("/staff/audit-logs")
+def staff_audit_logs(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    logs = (
+        db.query(AuditLog)
+        .filter(AuditLog.user_id == current_user.id)
+        .order_by(AuditLog.created_at.desc())
+        .limit(50)
+        .all()
+    )
 
+    return [
+        {"action": l.action, "time": l.created_at}
+        for l in logs
+    ]
 
 
 # ---------------- SWAGGER AUTH ----------------
