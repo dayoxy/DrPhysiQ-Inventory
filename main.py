@@ -499,6 +499,55 @@ def get_staff_expense_history(
 
     return history
 
+# ---------------- ADMIN: DEACTIVATE STAFF ----------------
+@app.patch("/admin/staff/{staff_id}/deactivate")
+def deactivate_staff(
+    staff_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    staff = (
+        db.query(User)
+        .filter(User.id == staff_id, User.role == "staff")
+        .first()
+    )
+
+    if not staff:
+        raise HTTPException(status_code=404, detail="Staff not found")
+
+    staff.is_active = False
+    db.commit()
+
+    return {"message": "Staff deactivated successfully"}
+
+
+# ---------------- ADMIN: ACTIVATE STAFF ----------------
+@app.patch("/admin/staff/{staff_id}/activate")
+def activate_staff(
+    staff_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    staff = (
+        db.query(User)
+        .filter(User.id == staff_id, User.role == "staff")
+        .first()
+    )
+
+    if not staff:
+        raise HTTPException(status_code=404, detail="Staff not found")
+
+    staff.is_active = True
+    db.commit()
+
+    return {"message": "Staff activated successfully"}
+
 
 # ---------------- SWAGGER AUTH ----------------
 def custom_openapi():
