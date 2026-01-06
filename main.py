@@ -275,7 +275,6 @@ def list_sbus(
         {
             "id": sbu.id,
             "name": sbu.name,
-            "department": sbu.department,
             "daily_budget": sbu.daily_budget
         }
         for sbu in sbus
