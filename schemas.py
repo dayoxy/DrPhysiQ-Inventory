@@ -104,3 +104,20 @@ class StaffDashboardResponse(BaseModel):
     performance_percent: float
     performance_status: str
 
+class StaffContributionSchema(BaseModel):
+    staff_id: str
+    staff_name: str
+    total_sales: int
+    total_expenses: int
+    net_profit: int
+
+
+class SBUReportWithStaffSchema(BaseModel):
+    period: str
+    total_sales: int
+    total_expenses: int
+    net_profit: int
+    performance_percent: float
+    staff_breakdown: list[StaffContributionSchema]
+
+
