@@ -185,6 +185,47 @@ def create_staff_expense(
     db.commit()
     return {"message": "Expense recorded"}
 
+@app.get("/admin/sbus")
+def list_sbus(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    sbus = db.query(SBU).all()
+
+    return [
+        {
+            "id": sbu.id,
+            "name": sbu.name,
+            "daily_budget": sbu.daily_budget
+        }
+        for sbu in sbus
+    ]
+
+@app.get("/admin/staff")
+def list_staff(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    staff = db.query(User).filter(User.role == "staff").all()
+
+    return [
+        {
+            "id": u.id,
+            "full_name": u.full_name,
+            "username": u.username,
+            "sbu_id": u.sbu_id,
+            "is_active": u.is_active
+        }
+        for u in staff
+    ]
+
+
 # ---------------- STAFF DASHBOARD ----------------
 @app.get("/staff/my-sbu", response_model=StaffDashboardResponse)
 def staff_dashboard(
