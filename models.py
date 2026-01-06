@@ -43,16 +43,15 @@ class SBU(Base):
     daily_budget = Column(Integer, nullable=False)
     description = Column(Text)
 
+    # ✅ ADD THIS
+    is_active = Column(Boolean, default=True)
+
     # Fixed costs
     personnel_cost = Column(Integer, default=0)
     rent = Column(Integer, default=0)
     electricity = Column(Integer, default=0)
 
-    # Soft delete
-    is_active = Column(Boolean, default=True)
-
-    # Relationships
-    staff = relationship("User", back_populates="sbu")
+    staff = relationship("User", back_populates="sbu", cascade="all,delete")
     sales = relationship("Sale", back_populates="sbu", cascade="all,delete")
     expenses = relationship("Expense", back_populates="sbu", cascade="all,delete")
 
