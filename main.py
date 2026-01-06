@@ -590,6 +590,71 @@ def change_password(
     return {"message": "Password updated successfully"}
 
 
+@app.get("/staff/my-sbu/report")
+def staff_sbu_report(
+    period: str,
+    report_date: date,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    if current_user.role != "staff":
+        raise HTTPException(status_code=403)
+
+    sbu = db.query(SBU).filter(SBU.id == current_user.sbu_id).first()
+    if not sbu:
+        raise HTTPException(status_code=404, detail="SBU not found")
+
+    # DATE RANGE
+    if period == "daily":
+        start = report_date
+        end = report_date
+    elif period == "weekly":
+        start = report_date - timedelta(days=6)
+        end = report_date
+    elif period == "monthly":
+        start = report_date.replace(day=1)
+        end = report_date
+    else:
+        raise HTTPException(status_code=400, detail="Invalid period")
+
+    total_sales = (
+        db.query(func.coalesce(func.sum(Sale.amount), 0))
+        .filter(
+            Sale.sbu_id == sbu.id,
+            Sale.date >= start,
+            Sale.date <= end
+        )
+        .scalar()
+    )
+
+    total_expenses = (
+        db.query(func.coalesce(func.sum(Expense.amount), 0))
+        .filter(
+            Expense.sbu_id == sbu.id,
+            Expense.effective_from >= start,
+            Expense.effective_from <= end
+        )
+        .scalar()
+    )
+
+    net_profit = total_sales - total_expenses
+    performance = (
+        round((total_sales / sbu.daily_budget) * 100, 2)
+        if sbu.daily_budget else 0
+    )
+
+    return {
+        "sbu": {"name": sbu.name},
+        "period": period,
+        "date_range": {"from": start, "to": end},
+        "total_sales": total_sales,
+        "total_expenses": total_expenses,
+        "net_profit": net_profit,
+        "performance_percent": performance
+    }
+
+
+
 
 # ---------------- SWAGGER AUTH ----------------
 def custom_openapi():
