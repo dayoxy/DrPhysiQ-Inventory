@@ -243,27 +243,67 @@ def staff_dashboard(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    sbu = db.query(SBU).filter(SBU.id == current_user.sbu_id).first()
+    # 🔒 Role check (important)
+    if current_user.role != "staff":
+        raise HTTPException(status_code=403, detail="Staff access only")
+
+    # ❗ Staff not assigned to any SBU
+    if not current_user.sbu_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Your account is not linked to an SBU. Please contact admin."
+        )
+
+    # 🔎 Fetch SBU
+    sbu = db.query(SBU).filter(
+        SBU.id == current_user.sbu_id,
+        SBU.is_active == True
+    ).first()
+
+    if not sbu:
+        raise HTTPException(
+            status_code=404,
+            detail="Assigned SBU not found or inactive"
+        )
+
     today = date.today()
 
+    # 💰 Sales today
     sales_today = (
         db.query(func.coalesce(func.sum(Sale.amount), 0))
         .filter(Sale.sbu_id == sbu.id, Sale.date == today)
         .scalar()
     )
 
-    fixed_total = (sbu.personnel_cost or 0) + (sbu.rent or 0) + (sbu.electricity or 0)
+    # 📉 Fixed costs
+    fixed_total = (
+        (sbu.personnel_cost or 0) +
+        (sbu.rent or 0) +
+        (sbu.electricity or 0)
+    )
+
     net_profit = sales_today - fixed_total
 
     performance = (
         round((sales_today / sbu.daily_budget) * 100, 2)
-        if sbu.daily_budget else 0
+        if sbu.daily_budget and sbu.daily_budget > 0
+        else 0
     )
 
-    status = "Excellent" if performance >= 100 else "warning" if performance >= 80 else "Critical"
+    status = (
+        "Excellent"
+        if performance >= 100
+        else "warning"
+        if performance >= 80
+        else "Critical"
+    )
 
     return {
-        "sbu": {"id": sbu.id, "name": sbu.name, "daily_budget": sbu.daily_budget},
+        "sbu": {
+            "id": sbu.id,
+            "name": sbu.name,
+            "daily_budget": sbu.daily_budget
+        },
         "sales_today": sales_today,
         "fixed_costs": {
             "personnel_cost": sbu.personnel_cost or 0,
@@ -276,8 +316,8 @@ def staff_dashboard(
         "net_profit": net_profit,
         "performance_percent": performance,
         "performance_status": status
-    }
 
+        
 # ---------------- ADMIN SBU REPORT (WITH STAFF BREAKDOWN) ----------------
 @app.get("/admin/sbu-report", response_model=SBUReportWithStaffSchema)
 def admin_sbu_report(
