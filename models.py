@@ -19,14 +19,13 @@ class User(Base):
     __tablename__ = "users"
 
     id = Column(String(36), primary_key=True)
+    full_name = Column(String(150), nullable=False)  # ✅ ADD THIS
     username = Column(String(100), unique=True, nullable=False)
     password_hash = Column(String(255), nullable=False)
     role = Column(String(20), nullable=False)
 
-    # 🔐 Force password reset
     must_change_password = Column(Boolean, default=True)
 
-    # 🏢 Staff belongs to an SBU
     sbu_id = Column(String, ForeignKey("sbus.id"), nullable=True)
     sbu = relationship("SBU", back_populates="staff")
 
