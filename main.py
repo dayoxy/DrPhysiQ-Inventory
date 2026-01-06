@@ -548,6 +548,30 @@ def activate_staff(
 
     return {"message": "Staff activated successfully"}
 
+@app.delete("/admin/staff/{staff_id}")
+def delete_staff(
+    staff_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    staff = (
+        db.query(User)
+        .filter(User.id == staff_id, User.role == "staff")
+        .first()
+    )
+
+    if not staff:
+        raise HTTPException(status_code=404, detail="Staff not found")
+
+    db.delete(staff)
+    db.commit()
+
+    return {"message": "Staff deleted successfully"}
+
+
 
 # ---------------- SWAGGER AUTH ----------------
 def custom_openapi():
