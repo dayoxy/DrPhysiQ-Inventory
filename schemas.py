@@ -120,4 +120,7 @@ class SBUReportWithStaffSchema(BaseModel):
     performance_percent: float
     staff_breakdown: list[StaffContributionSchema]
 
+class ChangePasswordSchema(BaseModel):
+    old_password: str
+    new_password: str
 
