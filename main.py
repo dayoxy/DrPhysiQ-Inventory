@@ -541,6 +541,31 @@ def admin_staff_sbu_report(
         "performance_percent": performance
     }
 
+@app.get("/admin/audit-logs")
+def get_audit_logs(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403)
+
+    logs = (
+        db.query(AuditLog)
+        .order_by(AuditLog.created_at.desc())
+        .limit(100)
+        .all()
+    )
+
+    return [
+        {
+            "staff": l.user.full_name if l.user else "System",
+            "action": l.action,
+            "time": l.created_at
+        }
+        for l in logs
+    ]
+
+
 
 
 # ---------------- SWAGGER AUTH ----------------
