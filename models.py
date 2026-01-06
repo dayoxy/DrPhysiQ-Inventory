@@ -90,11 +90,11 @@ class Expense(Base):
 class AuditLog(Base):
     __tablename__ = "audit_logs"
 
-    id = Column(String, primary_key=True)
-    user_id = Column(String, ForeignKey("users.id"))
-    action = Column(String, nullable=False)
-    entity = Column(String)
-    created_at = Column(DateTime, server_default=func.now())
+    id = Column(String(36), primary_key=True)
+    user_id = Column(String(36), ForeignKey("users.id"))
+    action = Column(String(255), nullable=False)
+    entity = Column(String(50))
+    created_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User")
 
