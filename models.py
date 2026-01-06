@@ -6,14 +6,12 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Text,
-    func,
-    Boolean
+    Boolean,
+    func
 )
-from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from database import Base
 from datetime import datetime
-
 
 
 # ================= USER =================
@@ -21,22 +19,18 @@ class User(Base):
     __tablename__ = "users"
 
     id = Column(String(36), primary_key=True)
-    full_name = Column(String, nullable=False)
-    username = Column(String, unique=True, nullable=False)
-    password_hash = Column(String, nullable=False)
-    role = Column(String, nullable=False)  # admin | staff
+    username = Column(String(100), unique=True, nullable=False)
+    password_hash = Column(String(255), nullable=False)
+    role = Column(String(20), nullable=False)
 
-    sbu_id = Column(String(36), ForeignKey("sbus.id"), nullable=True)
-
-    is_active = Column(Boolean, default=True)  # ✅ ADD THIS
-
-    created_at = Column(DateTime, server_default=func.now())
-
-    sbu = relationship("SBU", back_populates="staff")
-    
-    
+    # 🔐 Force password reset
     must_change_password = Column(Boolean, default=True)
 
+    # 🏢 Staff belongs to an SBU
+    sbu_id = Column(String, ForeignKey("sbus.id"), nullable=True)
+    sbu = relationship("SBU", back_populates="staff")
+
+    created_at = Column(DateTime, default=datetime.utcnow)
 
 
 # ================= SBU =================
@@ -54,9 +48,9 @@ class SBU(Base):
     rent = Column(Integer, default=0)
     electricity = Column(Integer, default=0)
 
-    staff = relationship("User", back_populates="sbu")
-    sales = relationship("Sale", back_populates="sbu")
-    expenses = relationship("Expense", back_populates="sbu")
+    staff = relationship("User", back_populates="sbu", cascade="all,delete")
+    sales = relationship("Sale", back_populates="sbu", cascade="all,delete")
+    expenses = relationship("Expense", back_populates="sbu", cascade="all,delete")
 
 
 # ================= SALE =================
@@ -68,7 +62,8 @@ class Sale(Base):
     amount = Column(Integer, nullable=False)
     date = Column(Date, nullable=False)
     notes = Column(Text)
-    created_by = Column(String, ForeignKey("users.id"), nullable=True)
+
+    created_by = Column(String, ForeignKey("users.id"))
     created_at = Column(DateTime, server_default=func.now())
 
     sbu = relationship("SBU", back_populates="sales")
@@ -85,13 +80,15 @@ class Expense(Base):
     amount = Column(Integer, nullable=False)
     effective_from = Column(Date, nullable=False)
     notes = Column(Text)
-    created_by = Column(String, ForeignKey("users.id"), nullable=True)
+
+    created_by = Column(String, ForeignKey("users.id"))
     created_at = Column(DateTime, server_default=func.now())
 
     sbu = relationship("SBU", back_populates="expenses")
     staff = relationship("User")
 
 
+# ================= AUDIT LOG =================
 class AuditLog(Base):
     __tablename__ = "audit_logs"
 
@@ -102,8 +99,3 @@ class AuditLog(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User")
-
-class ChangePasswordSchema(BaseModel):
-    old_password: str
-    new_password: str
-
