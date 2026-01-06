@@ -17,7 +17,8 @@ from schemas import (
     StaffExpenseSchema,
     StaffDashboardResponse,
     ChartResponse,
-    SBUReportWithStaffSchema
+    SBUReportWithStaffSchema,
+    ChangePasswordSchema
 )
 
 # ---------------- APP ----------------
@@ -570,6 +571,23 @@ def delete_staff(
     db.commit()
 
     return {"message": "Staff deleted successfully"}
+
+@app.post("/staff/change-password")
+def change_password(
+    payload: ChangePasswordSchema,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    if current_user.role != "staff":
+        raise HTTPException(status_code=403, detail="Staff only")
+
+    if not verify_password(payload.old_password, current_user.password_hash):
+        raise HTTPException(status_code=400, detail="Old password incorrect")
+
+    current_user.password_hash = hash_password(payload.new_password)
+    db.commit()
+
+    return {"message": "Password updated successfully"}
 
 
 
