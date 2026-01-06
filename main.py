@@ -346,3 +346,52 @@ def get_staff_expense_history(
 
     return history
 
+
+@app.get("/admin/staff")
+def list_staff(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    staff = (
+        db.query(User)
+        .filter(User.role == "staff")
+        .all()
+    )
+
+    return [
+        {
+            "id": user.id,
+            "full_name": user.full_name,
+            "username": user.username,
+            "sbu_id": user.sbu_id
+        }
+        for user in staff
+    ]
+
+
+@app.delete("/admin/staff/{staff_id}")
+def delete_staff(
+    staff_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    staff = db.query(User).filter(User.id == staff_id).first()
+
+    if not staff:
+        raise HTTPException(status_code=404, detail="Staff not found")
+
+    if staff.role != "staff":
+        raise HTTPException(status_code=400, detail="Cannot delete admin")
+
+    db.delete(staff)
+    db.commit()
+
+    return {"message": "Staff deleted successfully"}
+
+
