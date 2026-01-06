@@ -65,11 +65,13 @@ def create_staff(
     current_user: User = Depends(get_current_user)
 ):
     if current_user.role != "admin":
-        raise HTTPException(status_code=403)
+        raise HTTPException(status_code=403, detail="Admin only")
 
+    # Check duplicate username
     if db.query(User).filter(User.username == payload.username).first():
         raise HTTPException(status_code=400, detail="User already exists")
 
+    # Create staff user
     user = User(
         id=str(uuid.uuid4()),
         full_name=payload.full_name,
@@ -80,15 +82,22 @@ def create_staff(
     )
 
     db.add(user)
+    db.commit()          # ✅ commit staff first
+    db.refresh(user)
 
-    db.add(AuditLog(
-        id=str(uuid.uuid4()),
-        user_id=current_user.id,
-        action=f"Created staff {payload.username}",
-        entity="staff"
-    ))
+    # Audit log (failsafe)
+    try:
+        db.add(AuditLog(
+            id=str(uuid.uuid4()),
+            user_id=current_user.id,
+            action=f"Created staff {payload.username}",
+            entity="staff"
+        ))
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        print("Audit log failed:", e)
 
-    db.commit()
     return {"message": "Staff created successfully"}
 
 # ---------------- ADMIN: CREATE SBU ----------------
