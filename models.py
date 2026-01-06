@@ -24,7 +24,7 @@ class User(Base):
     password_hash = Column(String(255), nullable=False)
     role = Column(String(20), nullable=False)
 
-    is_active = Column(Boolean, default=True)          # ✅ ADD THIS
+    is_active = Column(Boolean, default=True)
     must_change_password = Column(Boolean, default=True)
 
     sbu_id = Column(String, ForeignKey("sbus.id"), nullable=True)
