@@ -261,6 +261,27 @@ def admin_sbu_report(
         "net_profit": sales - expenses
     }
 
+@app.get("/admin/sbus")
+def list_sbus(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    sbus = db.query(SBU).all()
+
+    return [
+        {
+            "id": sbu.id,
+            "name": sbu.name,
+            "department": sbu.department,
+            "daily_budget": sbu.daily_budget
+        }
+        for sbu in sbus
+    ]
+
+
 # ---------------- ADMIN CHART (SAFE STUB) ----------------
 @app.get("/admin/sbu-chart", response_model=ChartResponse)
 def get_sbu_chart():
