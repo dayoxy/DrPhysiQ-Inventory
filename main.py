@@ -35,7 +35,7 @@ app.add_middleware(
         "https://dayoxy.github.io",
         "https://dayoxy.github.io/DrPhysiQ-Frontend"
     ],
-    allow_credentials=False,
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
