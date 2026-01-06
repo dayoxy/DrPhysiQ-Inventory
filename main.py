@@ -290,24 +290,63 @@ def list_sbus(
 def get_sbu_chart():
     return {"labels": [], "sales": [], "expenses": []}
 
-# ---------------- SWAGGER AUTH ----------------
-def custom_openapi():
-    if app.openapi_schema:
-        return app.openapi_schema
-    schema = get_openapi(
-        title="DrPhysiQ Inventory API",
-        version="1.0.0",
-        description="Admin & Staff API",
-        routes=app.routes,
-    )
-    schema["components"]["securitySchemes"] = {
-        "BearerAuth": {"type": "http", "scheme": "bearer", "bearerFormat": "JWT"}
-    }
-    schema["security"] = [{"BearerAuth": []}]
-    app.openapi_schema = schema
-    return app.openapi_schema
+@app.patch("/admin/staff/{staff_id}/deactivate")
+def deactivate_staff(
+    staff_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
 
-app.openapi = custom_openapi
+    staff = db.query(User).filter(User.id == staff_id, User.role == "staff").first()
+    if not staff:
+        raise HTTPException(status_code=404, detail="Staff not found")
+
+    staff.is_active = False
+    db.commit()
+
+    return {"message": "Staff deactivated successfully"}
+    
+@app.patch("/admin/staff/{staff_id}/activate")
+def activate_staff(
+    staff_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    staff = db.query(User).filter(User.id == staff_id, User.role == "staff").first()
+    if not staff:
+        raise HTTPException(status_code=404, detail="Staff not found")
+
+    staff.is_active = True
+    db.commit()
+
+    return {"message": "Staff activated successfully"}
+
+@app.get("/admin/staff")
+def list_staff(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    staff = db.query(User).filter(User.role == "staff").all()
+
+    return [
+        {
+            "id": u.id,
+            "full_name": u.full_name,
+            "username": u.username,
+            "sbu_id": u.sbu_id,
+            "is_active": u.is_active,
+            "created_at": u.created_at
+        }
+        for u in staff
+    ]
 
 
 @app.get("/staff/expenses/history")
@@ -351,47 +390,32 @@ def get_staff_expense_history(
     return history
 
 
-@app.get("/admin/staff")
-def list_staff(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
 
-    staff = (
-        db.query(User)
-        .filter(User.role == "staff")
-        .all()
+# ---------------- SWAGGER AUTH ----------------
+def custom_openapi():
+    if app.openapi_schema:
+        return app.openapi_schema
+    schema = get_openapi(
+        title="DrPhysiQ Inventory API",
+        version="1.0.0",
+        description="Admin & Staff API",
+        routes=app.routes,
     )
+    schema["components"]["securitySchemes"] = {
+        "BearerAuth": {"type": "http", "scheme": "bearer", "bearerFormat": "JWT"}
+    }
+    schema["security"] = [{"BearerAuth": []}]
+    app.openapi_schema = schema
+    return app.openapi_schema
 
-    return [
-        {
-            "id": user.id,
-            "full_name": user.full_name,
-            "username": user.username,
-            "sbu_id": user.sbu_id
-        }
-        for user in staff
-    ]
+app.openapi = custom_openapi
 
 
-@app.delete("/admin/staff/{staff_id}")
-def deactivate_staff(
-    staff_id: str,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
 
-    staff = db.query(User).filter(User.id == staff_id).first()
-    if not staff:
-        raise HTTPException(status_code=404, detail="Staff not found")
 
-    staff.is_active = False
-    db.commit()
 
-    return {"message": "Staff deactivated successfully"}
+
+
+
 
 
