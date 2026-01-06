@@ -389,6 +389,120 @@ def get_staff_expense_history(
 
     return history
 
+@app.get("/admin/staff/{staff_id}/sbu-report")
+def admin_staff_sbu_report(
+    staff_id: str,
+    period: str,
+    report_date: date,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    staff = db.query(User).filter(
+        User.id == staff_id,
+        User.role == "staff"
+    ).first()
+
+    if not staff:
+        raise HTTPException(status_code=404, detail="Staff not found")
+
+    if not staff.sbu_id:
+        raise HTTPException(status_code=400, detail="Staff not assigned to SBU")
+
+    sbu = db.query(SBU).filter(SBU.id == staff.sbu_id).first()
+    if not sbu:
+        raise HTTPException(status_code=404, detail="SBU not found")
+
+    # 📆 DATE RANGE
+    if period == "daily":
+        start = report_date
+        end = report_date
+    elif period == "weekly":
+        start = report_date - timedelta(days=6)
+        end = report_date
+    elif period == "monthly":
+        start = report_date.replace(day=1)
+        end = report_date
+    else:
+        raise HTTPException(status_code=400, detail="Invalid period")
+
+    # 💰 SALES
+    total_sales = (
+        db.query(func.coalesce(func.sum(Sale.amount), 0))
+        .filter(
+            Sale.sbu_id == sbu.id,
+            Sale.date >= start,
+            Sale.date <= end
+        )
+        .scalar()
+    )
+
+    # 💸 VARIABLE EXPENSES
+    variable_rows = (
+        db.query(
+            Expense.category,
+            func.coalesce(func.sum(Expense.amount), 0)
+        )
+        .filter(
+            Expense.sbu_id == sbu.id,
+            Expense.effective_from >= start,
+            Expense.effective_from <= end
+        )
+        .group_by(Expense.category)
+        .all()
+    )
+
+    variable_expenses = {
+        "consumables": 0,
+        "general_expenses": 0,
+        "utilities": 0,
+        "miscellaneous": 0
+    }
+
+    for cat, amt in variable_rows:
+        variable_expenses[cat] = amt
+
+    variable_total = sum(variable_expenses.values())
+
+    # 🔒 FIXED COSTS
+    fixed_total = (
+        (sbu.personnel_cost or 0) +
+        (sbu.rent or 0) +
+        (sbu.electricity or 0)
+    )
+
+    total_expenses = fixed_total + variable_total
+    net_profit = total_sales - total_expenses
+
+    performance = (
+        round((total_sales / sbu.daily_budget) * 100, 2)
+        if sbu.daily_budget else 0
+    )
+
+    return {
+        "staff": {
+            "id": staff.id,
+            "name": staff.full_name
+        },
+        "sbu": {
+            "id": sbu.id,
+            "name": sbu.name
+        },
+        "period": period,
+        "date_range": {
+            "from": start,
+            "to": end
+        },
+        "total_sales": total_sales,
+        "fixed_expenses": fixed_total,
+        "variable_expenses": variable_expenses,
+        "total_expenses": total_expenses,
+        "net_profit": net_profit,
+        "performance_percent": performance
+    }
+
 
 
 # ---------------- SWAGGER AUTH ----------------
