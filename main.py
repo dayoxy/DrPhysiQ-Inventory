@@ -17,7 +17,9 @@ from schemas import (
     StaffExpenseSchema,
     StaffDashboardResponse,
     DailyReportResponse,
-    ChartResponse
+    ChartResponse,
+    StaffContributionSchema,
+    SBUReportWithStaffSchema
 )
 
 # ---------------- APP ----------------
@@ -236,9 +238,13 @@ def staff_dashboard(
     }
 
 # ---------------- ADMIN REPORT ----------------
-@app.get("/admin/sbu-report", response_model=DailyReportResponse)
+@app.get(
+    "/admin/sbu-report",
+    response_model=SBUReportWithStaffSchema
+)
 def admin_sbu_report(
     sbu_id: str,
+    period: str,
     report_date: date,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -246,23 +252,55 @@ def admin_sbu_report(
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Admin only")
 
-    sales = (
+    # ---- totals ----
+    total_sales = (
         db.query(func.coalesce(func.sum(Sale.amount), 0))
-        .filter(Sale.sbu_id == sbu_id, Sale.date == report_date)
+        .filter(Sale.sbu_id == sbu_id)
         .scalar()
     )
 
-    expenses = (
+    total_expenses = (
         db.query(func.coalesce(func.sum(Expense.amount), 0))
-        .filter(Expense.sbu_id == sbu_id, Expense.effective_from <= report_date)
+        .filter(Expense.sbu_id == sbu_id)
         .scalar()
     )
+
+    net_profit = total_sales - total_expenses
+    performance = round((total_sales / 1) * 100, 2)  # adjust if you use budget
+
+    # ---- staff breakdown ----
+    staff_rows = (
+        db.query(
+            User.id,
+            User.full_name,
+            func.coalesce(func.sum(Sale.amount), 0).label("sales"),
+            func.coalesce(func.sum(Expense.amount), 0).label("expenses")
+        )
+        .join(Sale, Sale.created_by == User.id, isouter=True)
+        .join(Expense, Expense.created_by == User.id, isouter=True)
+        .filter(User.sbu_id == sbu_id)
+        .group_by(User.id)
+        .all()
+    )
+
+    staff_breakdown = [
+        {
+            "staff_id": s.id,
+            "staff_name": s.full_name,
+            "total_sales": s.sales,
+            "total_expenses": s.expenses,
+            "net_profit": s.sales - s.expenses
+        }
+        for s in staff_rows
+    ]
 
     return {
-        "date": report_date,
-        "sales": sales,
-        "expenses": expenses,
-        "net_profit": sales - expenses
+        "period": period,
+        "total_sales": total_sales,
+        "total_expenses": total_expenses,
+        "net_profit": net_profit,
+        "performance_percent": performance,
+        "staff_breakdown": staff_breakdown
     }
 
 @app.get("/admin/sbus")
