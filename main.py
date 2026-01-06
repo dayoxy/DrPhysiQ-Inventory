@@ -43,10 +43,14 @@ app.add_middleware(
 @app.post("/login")
 def login(payload: LoginSchema, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.username == payload.username).first()
+
     if not user or not verify_password(payload.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
-    token = create_access_token({"sub": user.id, "role": user.role})
+    token = create_access_token({
+        "sub": user.id,
+        "role": user.role
+    })
 
     return {
         "access_token": token,
@@ -373,25 +377,21 @@ def list_staff(
 
 
 @app.delete("/admin/staff/{staff_id}")
-def delete_staff(
+def deactivate_staff(
     staff_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Admin only")
 
     staff = db.query(User).filter(User.id == staff_id).first()
-
     if not staff:
         raise HTTPException(status_code=404, detail="Staff not found")
 
-    if staff.role != "staff":
-        raise HTTPException(status_code=400, detail="Cannot delete admin")
-
-    db.delete(staff)
+    staff.is_active = False
     db.commit()
 
-    return {"message": "Staff deleted successfully"}
+    return {"message": "Staff deactivated successfully"}
 
 
