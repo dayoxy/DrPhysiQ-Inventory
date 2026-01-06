@@ -450,6 +450,46 @@ def admin_staff_sbu_report(
         "performance_percent": performance
     }
 
+@app.get("/staff/expenses/history")
+def get_staff_expense_history(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if current_user.role != "staff":
+        raise HTTPException(status_code=403, detail="Staff only")
+
+    if not current_user.sbu_id:
+        raise HTTPException(status_code=400, detail="Staff not assigned to SBU")
+
+    rows = (
+        db.query(
+            Expense.effective_from,
+            Expense.category,
+            func.coalesce(func.sum(Expense.amount), 0)
+        )
+        .filter(Expense.sbu_id == current_user.sbu_id)
+        .group_by(Expense.effective_from, Expense.category)
+        .order_by(Expense.effective_from.desc())
+        .all()
+    )
+
+    history = {}
+
+    for day, category, amount in rows:
+        day_str = day.isoformat()
+
+        if day_str not in history:
+            history[day_str] = {
+                "consumables": 0,
+                "general_expenses": 0,
+                "utilities": 0,
+                "miscellaneous": 0
+            }
+
+        history[day_str][category] = amount
+
+    return history
+
 
 # ---------------- SWAGGER AUTH ----------------
 def custom_openapi():
