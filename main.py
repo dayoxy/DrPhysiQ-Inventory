@@ -55,7 +55,7 @@ def login(payload: LoginSchema, db: Session = Depends(get_db)):
         "access_token": token,
         "token_type": "bearer",
         "role": user.role,
-        "username": user.username
+        "username": user.username,
         "must_change_password": user.must_change_password 
     }
 
