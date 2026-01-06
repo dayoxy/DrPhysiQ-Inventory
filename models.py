@@ -48,7 +48,11 @@ class SBU(Base):
     rent = Column(Integer, default=0)
     electricity = Column(Integer, default=0)
 
-    staff = relationship("User", back_populates="sbu", cascade="all,delete")
+    # Soft delete
+    is_active = Column(Boolean, default=True)
+
+    # Relationships
+    staff = relationship("User", back_populates="sbu")
     sales = relationship("Sale", back_populates="sbu", cascade="all,delete")
     expenses = relationship("Expense", back_populates="sbu", cascade="all,delete")
 
