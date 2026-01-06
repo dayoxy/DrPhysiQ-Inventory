@@ -109,28 +109,50 @@ def create_sbu(
 
 # ---------------- STAFF: SALES ----------------
 @app.post("/staff/sales")
-def create_sale(
+def create_or_update_sales(
     payload: SaleCreateSchema,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     if current_user.role != "staff":
         raise HTTPException(status_code=403, detail="Staff only")
+
     if not current_user.sbu_id:
         raise HTTPException(status_code=400, detail="Staff not assigned to SBU")
 
-    sale = Sale(
-        id=str(uuid.uuid4()),
-        sbu_id=current_user.sbu_id,
-        amount=payload.amount,
-        date=payload.sale_date,
-        notes=payload.notes,
-        created_by=current_user.id
+    # 🔍 Check if sale already exists for this SBU + date
+    sale = (
+        db.query(Sale)
+        .filter(
+            Sale.sbu_id == current_user.sbu_id,
+            Sale.date == payload.sale_date
+        )
+        .first()
     )
 
-    db.add(sale)
+    if sale:
+        # ✅ UPDATE existing sale
+        sale.amount = payload.amount
+        sale.notes = payload.notes
+    else:
+        # ✅ INSERT new sale
+        sale = Sale(
+            id=str(uuid4()),
+            sbu_id=current_user.sbu_id,
+            amount=payload.amount,
+            date=payload.sale_date,
+            notes=payload.notes,
+            created_by=current_user.id
+        )
+        db.add(sale)
+
     db.commit()
-    return {"message": "Sale recorded"}
+
+    return {
+        "message": "Sales saved successfully",
+        "date": payload.sale_date,
+        "amount": payload.amount
+    }
 
 # ---------------- STAFF: EXPENSE ----------------
 @app.post("/staff/expenses")
