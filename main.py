@@ -624,12 +624,16 @@ def change_password(
     current_user: User = Depends(get_current_user)
 ):
     if current_user.role != "staff":
-        raise HTTPException(status_code=403, detail="Staff only")
+        raise HTTPException(status_code=403)
 
     if not verify_password(payload.old_password, current_user.password_hash):
         raise HTTPException(status_code=400, detail="Old password incorrect")
 
     current_user.password_hash = hash_password(payload.new_password)
+
+    # ✅ ADD THIS
+    current_user.must_change_password = False
+
     db.commit()
 
     return {"message": "Password updated successfully"}
