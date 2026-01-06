@@ -6,8 +6,10 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Text,
-    func
+    func,
+    Boolean
 )
+from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from database import Base
 
@@ -16,15 +18,20 @@ from database import Base
 class User(Base):
     __tablename__ = "users"
 
-    id = Column(String, primary_key=True)
+    id = Column(String(36), primary_key=True)
     full_name = Column(String, nullable=False)
     username = Column(String, unique=True, nullable=False)
     password_hash = Column(String, nullable=False)
     role = Column(String, nullable=False)  # admin | staff
-    sbu_id = Column(String, ForeignKey("sbus.id"), nullable=True)
+
+    sbu_id = Column(String(36), ForeignKey("sbus.id"), nullable=True)
+
+    is_active = Column(Boolean, default=True)  # ✅ ADD THIS
+
     created_at = Column(DateTime, server_default=func.now())
 
     sbu = relationship("SBU", back_populates="staff")
+
 
 
 # ================= SBU =================
