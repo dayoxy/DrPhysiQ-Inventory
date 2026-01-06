@@ -33,6 +33,9 @@ class User(Base):
     created_at = Column(DateTime, server_default=func.now())
 
     sbu = relationship("SBU", back_populates="staff")
+    
+    
+    must_change_password = Column(Boolean, default=True)
 
 
 
