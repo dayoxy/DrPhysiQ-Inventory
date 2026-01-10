@@ -254,19 +254,16 @@ def list_staff(
 
 
 # ---------------- STAFF DASHBOARD ----------------
-from datetime import date
-from fastapi import HTTPException
-
 @app.get("/staff/my-sbu", response_model=StaffDashboardResponse)
 def staff_dashboard(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    # 🔒 Role check (important)
+    # 🔒 Staff only
     if current_user.role != "staff":
         raise HTTPException(status_code=403, detail="Staff access only")
 
-    # ❗ Staff not assigned to any SBU
+    # 🔗 Ensure staff has SBU
     if not current_user.sbu_id:
         raise HTTPException(
             status_code=400,
@@ -274,49 +271,76 @@ def staff_dashboard(
         )
 
     # 🔎 Fetch SBU
-    sbu = db.query(SBU).filter(
-        SBU.id == current_user.sbu_id,
-        SBU.is_active == True
-    ).first()
-
+    sbu = db.query(SBU).filter(SBU.id == current_user.sbu_id).first()
     if not sbu:
-        raise HTTPException(
-            status_code=404,
-            detail="Assigned SBU not found or inactive"
-        )
+        raise HTTPException(status_code=404, detail="Assigned SBU not found")
 
     today = date.today()
 
-    # 💰 Sales today
+    # 💰 SALES TODAY
     sales_today = (
         db.query(func.coalesce(func.sum(Sale.amount), 0))
-        .filter(Sale.sbu_id == sbu.id, Sale.date == today)
+        .filter(
+            Sale.sbu_id == sbu.id,
+            Sale.date == today
+        )
         .scalar()
     )
 
-    # 📉 Fixed costs
-    fixed_total = (
-        (sbu.personnel_cost or 0) +
-        (sbu.rent or 0) +
-        (sbu.electricity or 0)
+    # 📦 VARIABLE EXPENSES (GROUPED BY CATEGORY)
+    expense_rows = (
+        db.query(
+            Expense.category,
+            func.coalesce(func.sum(Expense.amount), 0)
+        )
+        .filter(
+            Expense.sbu_id == sbu.id,
+            Expense.effective_from == today
+        )
+        .group_by(Expense.category)
+        .all()
     )
 
-    net_profit = sales_today - fixed_total
+    variable_costs = {
+        "consumables": 0,
+        "general_expenses": 0,
+        "utilities": 0,
+        "miscellaneous": 0
+    }
 
-    performance = (
+    for category, amount in expense_rows:
+        variable_costs[category] = amount
+
+    # 📉 FIXED COSTS
+    fixed_costs = {
+        "personnel_cost": sbu.personnel_cost or 0,
+        "rent": sbu.rent or 0,
+        "electricity": sbu.electricity or 0,
+    }
+
+    fixed_total = sum(fixed_costs.values())
+    variable_total = sum(variable_costs.values())
+    total_expenses = fixed_total + variable_total
+
+    # 📊 NET PROFIT
+    net_profit = sales_today - total_expenses
+
+    # 🎯 PERFORMANCE (% of DAILY TARGET)
+    performance_percent = (
         round((sales_today / sbu.daily_budget) * 100, 2)
         if sbu.daily_budget and sbu.daily_budget > 0
         else 0
     )
 
-    status = (
+    performance_status = (
         "Excellent"
-        if performance >= 100
+        if performance_percent >= 100
         else "warning"
-        if performance >= 80
+        if performance_percent >= 80
         else "Critical"
     )
 
+    # ✅ FINAL RESPONSE (MATCHES staff.js EXACTLY)
     return {
         "sbu": {
             "id": sbu.id,
@@ -325,16 +349,14 @@ def staff_dashboard(
         },
         "sales_today": sales_today,
         "fixed_costs": {
-            "personnel_cost": sbu.personnel_cost or 0,
-            "rent": sbu.rent or 0,
-            "electricity": sbu.electricity or 0,
+            **fixed_costs,
             "total_fixed": fixed_total
         },
-        "variable_costs": {},
-        "total_expenses": fixed_total,
+        "variable_costs": variable_costs,
+        "total_expenses": total_expenses,
         "net_profit": net_profit,
-        "performance_percent": performance,
-        "performance_status": status
+        "performance_percent": performance_percent,
+        "performance_status": performance_status
     }
 
         
