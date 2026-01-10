@@ -174,17 +174,33 @@ def create_staff_expense(
     if current_user.role != "staff":
         raise HTTPException(status_code=403)
 
-    expense = Expense(
-        id=str(uuid.uuid4()),
-        sbu_id=current_user.sbu_id,
-        category=payload.category,
-        amount=payload.amount,
-        effective_from=payload.date,
-        notes=payload.notes,
-        created_by=current_user.id
+    # 🔎 CHECK IF EXPENSE ALREADY EXISTS FOR THAT DAY + CATEGORY
+    expense = (
+        db.query(Expense)
+        .filter(
+            Expense.sbu_id == current_user.sbu_id,
+            Expense.category == payload.category,
+            Expense.effective_from == payload.date
+        )
+        .first()
     )
 
-    db.add(expense)
+    if expense:
+        # ✅ UPDATE EXISTING
+        expense.amount += payload.amount
+        expense.notes = payload.notes
+    else:
+        # ✅ CREATE NEW
+        expense = Expense(
+            id=str(uuid.uuid4()),
+            sbu_id=current_user.sbu_id,
+            category=payload.category,
+            amount=payload.amount,
+            effective_from=payload.date,
+            notes=payload.notes,
+            created_by=current_user.id
+        )
+        db.add(expense)
 
     db.add(AuditLog(
         id=str(uuid.uuid4()),
@@ -194,7 +210,7 @@ def create_staff_expense(
     ))
 
     db.commit()
-    return {"message": "Expense recorded"}
+    return {"message": "Expense saved successfully"}
 
 @app.get("/admin/sbus")
 def list_sbus(
