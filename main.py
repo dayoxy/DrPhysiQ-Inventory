@@ -685,13 +685,14 @@ def staff_sbu_report(
     current_user: User = Depends(get_current_user)
 ):
     if current_user.role != "staff":
-        raise HTTPException(status_code=403)
+        raise HTTPException(status_code=403, detail="Staff only")
 
+    # 🔎 Get staff SBU
     sbu = db.query(SBU).filter(SBU.id == current_user.sbu_id).first()
     if not sbu:
         raise HTTPException(status_code=404, detail="SBU not found")
 
-    # DATE RANGE
+    # 📆 DATE RANGE
     if period == "daily":
         start = report_date
         end = report_date
@@ -704,30 +705,48 @@ def staff_sbu_report(
     else:
         raise HTTPException(status_code=400, detail="Invalid period")
 
+    # 💰 TOTAL SALES (exclude cancelled)
     total_sales = (
         db.query(func.coalesce(func.sum(Sale.amount), 0))
         .filter(
             Sale.sbu_id == sbu.id,
             Sale.date >= start,
-            Sale.date <= end
+            Sale.date <= end,
+            Sale.is_cancelled == False
         )
         .scalar()
     )
 
-    total_expenses = (
+    # 💸 VARIABLE EXPENSES (exclude cancelled)
+    variable_expenses = (
         db.query(func.coalesce(func.sum(Expense.amount), 0))
         .filter(
             Expense.sbu_id == sbu.id,
             Expense.effective_from >= start,
-            Expense.effective_from <= end
+            Expense.effective_from <= end,
+            Expense.is_cancelled == False
         )
         .scalar()
     )
 
+    # 🧾 FIXED EXPENSES (from SBU)
+    fixed_expenses = (
+        (sbu.personnel_cost or 0) +
+        (sbu.rent or 0) +
+        (sbu.electricity or 0)
+    )
+
+    # 📉 TOTAL EXPENSES
+    total_expenses = fixed_expenses + variable_expenses
+
+    # 📊 NET PROFIT
     net_profit = total_sales - total_expenses
+
+    # 📈 PERFORMANCE %
     performance = (
         round((total_sales / sbu.daily_budget) * 100, 2)
-        if sbu.daily_budget else 0
+        if sbu.daily_budget and sbu.daily_budget > 0
+        else 0
     )
 
     return {
@@ -735,6 +754,8 @@ def staff_sbu_report(
         "period": period,
         "date_range": {"from": start, "to": end},
         "total_sales": total_sales,
+        "fixed_expenses": fixed_expenses,
+        "variable_expenses": variable_expenses,
         "total_expenses": total_expenses,
         "net_profit": net_profit,
         "performance_percent": performance
@@ -757,6 +778,59 @@ def staff_audit_logs(
         {"action": l.action, "time": l.created_at}
         for l in logs
     ]
+
+
+@app.patch("/admin/sales/{sale_id}/cancel")
+def cancel_sale(
+    sale_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403)
+
+    sale = db.query(Sale).filter(Sale.id == sale_id).first()
+    if not sale:
+        raise HTTPException(status_code=404)
+
+    sale.is_cancelled = True
+
+    db.add(AuditLog(
+        id=str(uuid.uuid4()),
+        user_id=current_user.id,
+        action=f"Cancelled sale {sale_id}",
+        entity="sale"
+    ))
+
+    db.commit()
+    return {"message": "Sale cancelled"}
+    
+
+@app.patch("/admin/expenses/{expense_id}/cancel")
+def cancel_expense(
+    expense_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403)
+
+    expense = db.query(Expense).filter(Expense.id == expense_id).first()
+    if not expense:
+        raise HTTPException(status_code=404)
+
+    expense.is_cancelled = True
+
+    db.add(AuditLog(
+        id=str(uuid.uuid4()),
+        user_id=current_user.id,
+        action=f"Cancelled expense {expense_id}",
+        entity="expense"
+    ))
+
+    db.commit()
+    return {"message": "Expense cancelled"}
+
 
 
 # ---------------- SWAGGER AUTH ----------------
