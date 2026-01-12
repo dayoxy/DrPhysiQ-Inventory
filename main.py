@@ -657,6 +657,52 @@ def admin_staff_sbu_report(
         "performance_percent": performance
     }
 
+@app.get("/admin/staff/{staff_id}/report/range")
+def admin_staff_report_range(
+    staff_id: str,
+    start_date: date,
+    end_date: date,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403)
+
+    staff = db.query(User).filter(User.id == staff_id).first()
+    if not staff:
+        raise HTTPException(status_code=404, detail="Staff not found")
+
+    # SALES
+    total_sales = (
+        db.query(func.coalesce(func.sum(Sale.amount), 0))
+        .filter(
+            Sale.created_by == staff.id,
+            Sale.date.between(start_date, end_date),
+            Sale.is_cancelled == False
+        )
+        .scalar()
+    )
+
+    # EXPENSES
+    total_expenses = (
+        db.query(func.coalesce(func.sum(Expense.amount), 0))
+        .filter(
+            Expense.created_by == staff.id,
+            Expense.effective_from.between(start_date, end_date),
+            Expense.is_cancelled == False
+        )
+        .scalar()
+    )
+
+    return {
+        "staff": {"id": staff.id, "name": staff.full_name},
+        "date_range": {"from": start_date, "to": end_date},
+        "total_sales": total_sales,
+        "total_expenses": total_expenses,
+        "net_profit": total_sales - total_expenses
+    }
+
+
 @app.get("/staff/expenses/history")
 def get_staff_expense_history(
     current_user: User = Depends(get_current_user),
