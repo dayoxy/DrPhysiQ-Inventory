@@ -66,6 +66,8 @@ class Sale(Base):
     date = Column(Date, nullable=False)
     notes = Column(Text)
 
+    is_cancelled = Column(Boolean, default=False)  # ✅ ADD THIS
+
     created_by = Column(String, ForeignKey("users.id"))
     created_at = Column(DateTime, server_default=func.now())
 
@@ -83,6 +85,8 @@ class Expense(Base):
     amount = Column(Integer, nullable=False)
     effective_from = Column(Date, nullable=False)
     notes = Column(Text)
+
+    is_cancelled = Column(Boolean, default=False)  # ✅ ADD THIS
 
     created_by = Column(String, ForeignKey("users.id"))
     created_at = Column(DateTime, server_default=func.now())
