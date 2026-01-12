@@ -166,7 +166,7 @@ def create_or_update_sales(
 
 # ---------------- STAFF: EXPENSE ----------------
 @app.post("/staff/expenses")
-def create_staff_expense(
+def create_or_update_staff_expense(
     payload: StaffExpenseSchema,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -174,23 +174,22 @@ def create_staff_expense(
     if current_user.role != "staff":
         raise HTTPException(status_code=403)
 
-    # 🔎 CHECK IF EXPENSE ALREADY EXISTS FOR THAT DAY + CATEGORY
-    expense = (
+    existing = (
         db.query(Expense)
         .filter(
             Expense.sbu_id == current_user.sbu_id,
             Expense.category == payload.category,
-            Expense.effective_from == payload.date
+            Expense.effective_from == payload.date,
+            Expense.is_cancelled == False
         )
         .first()
     )
 
-    if expense:
-        # ✅ UPDATE EXISTING
-        expense.amount += payload.amount
-        expense.notes = payload.notes
+    if existing:
+        # ✅ UPDATE instead of insert
+        existing.amount += payload.amount
+        existing.notes = payload.notes
     else:
-        # ✅ CREATE NEW
         expense = Expense(
             id=str(uuid.uuid4()),
             sbu_id=current_user.sbu_id,
@@ -210,7 +209,7 @@ def create_staff_expense(
     ))
 
     db.commit()
-    return {"message": "Expense saved successfully"}
+    return {"message": "Expense recorded successfully"}
 
 @app.get("/admin/sbus")
 def list_sbus(
