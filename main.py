@@ -229,6 +229,7 @@ def list_sbus(
         }
         for sbu in sbus
     ]
+    
 @app.get("/admin/sbu-report/range")
 def admin_sbu_report_range(
     sbu_id: str,
@@ -238,37 +239,32 @@ def admin_sbu_report_range(
     current_user: User = Depends(get_current_user)
 ):
     if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
+        raise HTTPException(status_code=403)
 
     sbu = db.query(SBU).filter(SBU.id == sbu_id).first()
     if not sbu:
-        raise HTTPException(status_code=404, detail="SBU not found")
+        raise HTTPException(status_code=404)
 
-    # 💰 SALES (exclude cancelled)
     total_sales = (
         db.query(func.coalesce(func.sum(Sale.amount), 0))
         .filter(
             Sale.sbu_id == sbu.id,
-            Sale.date >= start_date,
-            Sale.date <= end_date,
+            Sale.date.between(start_date, end_date),
             Sale.is_cancelled == False
         )
         .scalar()
     )
 
-    # 💸 VARIABLE EXPENSES (exclude cancelled)
     variable_expenses = (
         db.query(func.coalesce(func.sum(Expense.amount), 0))
         .filter(
             Expense.sbu_id == sbu.id,
-            Expense.effective_from >= start_date,
-            Expense.effective_from <= end_date,
+            Expense.effective_from.between(start_date, end_date),
             Expense.is_cancelled == False
         )
         .scalar()
     )
 
-    # 🧾 FIXED EXPENSES
     fixed_expenses = (
         (sbu.personnel_cost or 0) +
         (sbu.rent or 0) +
@@ -427,6 +423,18 @@ def admin_sbu_report(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    sbu = db.query(SBU).filter(
+        SBU.id == sbu_id,
+        SBU.is_active == True
+    ).first()
+
+    if not sbu:
+        raise HTTPException(status_code=404, detail="SBU not found or inactive")
+
+    # 📆 DATE RANGE
     if period == "daily":
         start = report_date
         end = report_date
@@ -439,30 +447,66 @@ def admin_sbu_report(
     else:
         raise HTTPException(status_code=400, detail="Invalid period")
 
+    days_count = (end - start).days + 1
+
+    # 💰 TOTAL SALES (exclude cancelled)
     total_sales = (
         db.query(func.coalesce(func.sum(Sale.amount), 0))
-        .filter(Sale.sbu_id == sbu_id, Sale.date >= start, Sale.date <= end)
+        .filter(
+            Sale.sbu_id == sbu.id,
+            Sale.date.between(start, end),
+            Sale.is_cancelled == False
+        )
         .scalar()
     )
 
-    total_expenses = (
+    # 💸 VARIABLE EXPENSES (exclude cancelled)
+    variable_expenses = (
         db.query(func.coalesce(func.sum(Expense.amount), 0))
-        .filter(Expense.sbu_id == sbu_id, Expense.effective_from >= start, Expense.effective_from <= end)
+        .filter(
+            Expense.sbu_id == sbu.id,
+            Expense.effective_from.between(start, end),
+            Expense.is_cancelled == False
+        )
         .scalar()
     )
 
+    # 🧾 FIXED EXPENSES (scaled by period)
+    daily_fixed = (
+        (sbu.personnel_cost or 0) +
+        (sbu.rent or 0) +
+        (sbu.electricity or 0)
+    )
+
+    fixed_expenses = daily_fixed * days_count
+    total_expenses = fixed_expenses + variable_expenses
     net_profit = total_sales - total_expenses
 
+    # 👥 STAFF BREAKDOWN (date-aware)
     sales_subq = (
-        db.query(Sale.created_by.label("staff_id"), func.sum(Sale.amount).label("sales"))
-        .filter(Sale.sbu_id == sbu_id)
+        db.query(
+            Sale.created_by.label("staff_id"),
+            func.coalesce(func.sum(Sale.amount), 0).label("sales")
+        )
+        .filter(
+            Sale.sbu_id == sbu.id,
+            Sale.date.between(start, end),
+            Sale.is_cancelled == False
+        )
         .group_by(Sale.created_by)
         .subquery()
     )
 
     expense_subq = (
-        db.query(Expense.created_by.label("staff_id"), func.sum(Expense.amount).label("expenses"))
-        .filter(Expense.sbu_id == sbu_id)
+        db.query(
+            Expense.created_by.label("staff_id"),
+            func.coalesce(func.sum(Expense.amount), 0).label("expenses")
+        )
+        .filter(
+            Expense.sbu_id == sbu.id,
+            Expense.effective_from.between(start, end),
+            Expense.is_cancelled == False
+        )
         .group_by(Expense.created_by)
         .subquery()
     )
@@ -476,7 +520,7 @@ def admin_sbu_report(
         )
         .outerjoin(sales_subq, sales_subq.c.staff_id == User.id)
         .outerjoin(expense_subq, expense_subq.c.staff_id == User.id)
-        .filter(User.sbu_id == sbu_id)
+        .filter(User.sbu_id == sbu.id)
         .all()
     )
 
@@ -491,12 +535,21 @@ def admin_sbu_report(
         for s in staff_rows
     ]
 
+    performance = (
+        round((total_sales / (sbu.daily_budget * days_count)) * 100, 2)
+        if sbu.daily_budget and sbu.daily_budget > 0
+        else 0
+    )
+
     return {
         "period": period,
+        "date_range": {"from": start, "to": end},
         "total_sales": total_sales,
+        "fixed_expenses": fixed_expenses,
+        "variable_expenses": variable_expenses,
         "total_expenses": total_expenses,
         "net_profit": net_profit,
-        "performance_percent": 0,
+        "performance_percent": performance,
         "staff_breakdown": staff_breakdown
     }
 
