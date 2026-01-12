@@ -230,6 +230,65 @@ def list_sbus(
         }
         for sbu in sbus
     ]
+@app.get("/admin/sbu-report/range")
+def admin_sbu_report_range(
+    sbu_id: str,
+    start_date: date,
+    end_date: date,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    sbu = db.query(SBU).filter(SBU.id == sbu_id).first()
+    if not sbu:
+        raise HTTPException(status_code=404, detail="SBU not found")
+
+    # 💰 SALES (exclude cancelled)
+    total_sales = (
+        db.query(func.coalesce(func.sum(Sale.amount), 0))
+        .filter(
+            Sale.sbu_id == sbu.id,
+            Sale.date >= start_date,
+            Sale.date <= end_date,
+            Sale.is_cancelled == False
+        )
+        .scalar()
+    )
+
+    # 💸 VARIABLE EXPENSES (exclude cancelled)
+    variable_expenses = (
+        db.query(func.coalesce(func.sum(Expense.amount), 0))
+        .filter(
+            Expense.sbu_id == sbu.id,
+            Expense.effective_from >= start_date,
+            Expense.effective_from <= end_date,
+            Expense.is_cancelled == False
+        )
+        .scalar()
+    )
+
+    # 🧾 FIXED EXPENSES
+    fixed_expenses = (
+        (sbu.personnel_cost or 0) +
+        (sbu.rent or 0) +
+        (sbu.electricity or 0)
+    )
+
+    total_expenses = fixed_expenses + variable_expenses
+    net_profit = total_sales - total_expenses
+
+    return {
+        "sbu": {"id": sbu.id, "name": sbu.name},
+        "date_range": {"from": start_date, "to": end_date},
+        "total_sales": total_sales,
+        "fixed_expenses": fixed_expenses,
+        "variable_expenses": variable_expenses,
+        "total_expenses": total_expenses,
+        "net_profit": net_profit
+    }
+
 
 @app.get("/admin/staff")
 def list_staff(
