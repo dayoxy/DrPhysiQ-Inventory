@@ -172,9 +172,10 @@ def create_or_update_staff_expense(
     current_user: User = Depends(get_current_user)
 ):
     if current_user.role != "staff":
-        raise HTTPException(status_code=403)
+        raise HTTPException(status_code=403, detail="Staff only")
 
-    existing = (
+    # 🔎 Check if expense already exists for same day + category
+    expense = (
         db.query(Expense)
         .filter(
             Expense.sbu_id == current_user.sbu_id,
@@ -185,11 +186,12 @@ def create_or_update_staff_expense(
         .first()
     )
 
-    if existing:
+    if expense:
         # ✅ UPDATE instead of insert
-        existing.amount += payload.amount
-        existing.notes = payload.notes
+        expense.amount += payload.amount
+        expense.notes = payload.notes
     else:
+        # ✅ CREATE new expense
         expense = Expense(
             id=str(uuid.uuid4()),
             sbu_id=current_user.sbu_id,
@@ -201,15 +203,16 @@ def create_or_update_staff_expense(
         )
         db.add(expense)
 
+    # 🧾 AUDIT LOG
     db.add(AuditLog(
         id=str(uuid.uuid4()),
         user_id=current_user.id,
-        action=f"Recorded expense ₦{payload.amount}",
+        action=f"Recorded expense ₦{payload.amount} ({payload.category})",
         entity="expense"
     ))
 
     db.commit()
-    return {"message": "Expense recorded successfully"}
+    return {"message": "Expense saved successfully"}
 
 @app.get("/admin/sbus")
 def list_sbus(
