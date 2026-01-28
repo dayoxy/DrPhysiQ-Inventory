@@ -18,7 +18,8 @@ from schemas import (
     StaffDashboardResponse,
     ChartResponse,
     SBUReportWithStaffSchema,
-    ChangePasswordSchema
+    ChangePasswordSchema,
+    CreateAdminSchema
 )
 
 # ---------------- APP ----------------
@@ -1051,6 +1052,33 @@ def reset_staff_password(
         "temporary_password": new_password
     }
 
+@app.post("/admin/create-admin")
+def create_admin_user(
+    payload: CreateAdminSchema,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    if current_user.role != "super_admin":
+        raise HTTPException(status_code=403)
+
+    temp_password = "Admin@1234"
+
+    user = User(
+        id=str(uuid.uuid4()),
+        full_name=payload.full_name,
+        username=payload.username,
+        password_hash=hash_password(temp_password),
+        role=payload.role,
+        must_change_password=True
+    )
+
+    db.add(user)
+    db.commit()
+
+    return {
+        "message": "Admin created",
+        "temporary_password": temp_password
+    }
 
 
 
