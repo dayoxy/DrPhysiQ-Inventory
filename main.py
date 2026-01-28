@@ -123,8 +123,12 @@ def create_sbu(
         name=payload.name,
         department=payload.department,
         daily_budget=payload.daily_budget,
+        personnel_cost=payload.personnel_cost,
+        rent=payload.rent,
+        electricity=payload.electricity,
         description=payload.description
     )
+
 
     db.add(sbu)
     db.commit()
