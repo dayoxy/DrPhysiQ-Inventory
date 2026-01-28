@@ -140,6 +140,9 @@ def create_or_update_sales(
     if current_user.role != "staff":
         raise HTTPException(status_code=403)
 
+    if not current_user.is_active:
+        raise HTTPException(status_code=403, detail="Account inactive")
+
     sale = (
         db.query(Sale)
         .filter(Sale.sbu_id == current_user.sbu_id, Sale.date == payload.sale_date)
@@ -178,7 +181,11 @@ def create_or_update_staff_expense(
     current_user: User = Depends(get_current_user)
 ):
     if current_user.role != "staff":
-        raise HTTPException(status_code=403, detail="Staff only")
+        raise HTTPException(status_code=403)
+
+    if not current_user.is_active:
+        raise HTTPException(status_code=403, detail="Account inactive")
+
 
     # 🔎 Check if expense already exists for same day + category
     expense = (
@@ -247,8 +254,9 @@ def admin_sbu_report_range(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403)
+    if current_user.role not in ["accountant_admin", "ops_admin", "super_admin"]:
+        raise HTTPException(status_code=403, detail="Not authorized to view reports")
+
 
     sbu = db.query(SBU).filter(SBU.id == sbu_id).first()
     if not sbu:
@@ -324,7 +332,10 @@ def staff_dashboard(
 ):
     # 🔒 Staff only
     if current_user.role != "staff":
-        raise HTTPException(status_code=403, detail="Staff access only")
+        raise HTTPException(status_code=403)
+
+    if not current_user.is_active:
+        raise HTTPException(status_code=403, detail="Account inactive")
 
     # 🔗 Ensure staff has SBU
     if not current_user.sbu_id:
@@ -432,8 +443,9 @@ def admin_sbu_report(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
+    if current_user.role not in ["accountant_admin", "ops_admin", "super_admin"]:
+        raise HTTPException(status_code=403, detail="Not authorized to view reports")
+
 
     sbu = db.query(SBU).filter(
         SBU.id == sbu_id,
@@ -568,6 +580,9 @@ def get_audit_logs(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    if current_user.role not in ["accountant_admin", "ops_admin", "super_admin"]:
+        raise HTTPException(status_code=403, detail="Not authorized to view reports")
+
     logs = (
         db.query(AuditLog)
         .order_by(AuditLog.created_at.desc())
@@ -592,8 +607,8 @@ def admin_staff_sbu_report(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
+    if current_user.role not in ["accountant_admin", "ops_admin", "super_admin"]:
+        raise HTTPException(status_code=403, detail="Not authorized to view reports")
 
     staff = db.query(User).filter(
         User.id == staff_id,
@@ -671,8 +686,9 @@ def admin_staff_report_range(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403)
+    if current_user.role not in ["accountant_admin", "ops_admin", "super_admin"]:
+        raise HTTPException(status_code=403, detail="Not authorized to view reports")
+
 
     staff = db.query(User).filter(User.id == staff_id).first()
     if not staff:
@@ -805,8 +821,8 @@ def delete_staff(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
+    if current_user.role not in ["ops_admin", "super_admin"]:
+        raise HTTPException(status_code=403, detail="Operations admin only")
 
     staff = (
         db.query(User)
@@ -831,6 +847,9 @@ def change_password(
     if current_user.role != "staff":
         raise HTTPException(status_code=403)
 
+    if not current_user.is_active:
+        raise HTTPException(status_code=403, detail="Account inactive")
+
     if not verify_password(payload.old_password, current_user.password_hash):
         raise HTTPException(status_code=400, detail="Old password incorrect")
 
@@ -852,7 +871,10 @@ def staff_sbu_report(
     current_user: User = Depends(get_current_user)
 ):
     if current_user.role != "staff":
-        raise HTTPException(status_code=403, detail="Staff only")
+        raise HTTPException(status_code=403)
+
+    if not current_user.is_active:
+        raise HTTPException(status_code=403, detail="Account inactive")
 
     # 🔎 Get staff SBU
     sbu = db.query(SBU).filter(SBU.id == current_user.sbu_id).first()
@@ -999,6 +1021,32 @@ def cancel_expense(
 
     db.commit()
     return {"message": "Expense cancelled"}
+
+
+@app.post("/admin/staff/{staff_id}/reset-password")
+def reset_staff_password(
+    staff_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    if current_user.role not in ["ops_admin", "super_admin"]:
+        raise HTTPException(status_code=403)
+
+    staff = db.query(User).filter(User.id == staff_id).first()
+    if not staff:
+        raise HTTPException(status_code=404)
+
+    new_password = "Temp@1234"  # or auto-generate
+    staff.password_hash = hash_password(new_password)
+    staff.must_change_password = True
+
+    db.commit()
+
+    return {
+        "message": "Password reset successfully",
+        "temporary_password": new_password
+    }
+
 
 
 
