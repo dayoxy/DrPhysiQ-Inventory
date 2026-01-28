@@ -23,6 +23,9 @@ class CreateSBUSchema(BaseModel):
     name: str
     department: str
     daily_budget: int
+    personnel_cost: int = 0
+    rent: int = 0
+    electricity: int = 0
     description: Optional[str] = None
 
 
