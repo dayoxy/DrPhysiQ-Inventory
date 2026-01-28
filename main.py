@@ -70,8 +70,9 @@ def create_staff(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
+    if current_user.role not in ["ops_admin", "super_admin"]:
+        raise HTTPException(status_code=403, detail="Operations admin only")
+
 
     # Check duplicate username
     if db.query(User).filter(User.username == payload.username).first():
@@ -113,8 +114,9 @@ def create_sbu(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403)
+    if current_user.role not in ["ops_admin", "super_admin"]:
+        raise HTTPException(status_code=403, detail="Operations admin only")
+
 
     sbu = SBU(
         id=str(uuid.uuid4()),
@@ -754,8 +756,9 @@ def deactivate_staff(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
+    if current_user.role not in ["ops_admin", "super_admin"]:
+        raise HTTPException(status_code=403, detail="Operations admin only")
+
 
     staff = (
         db.query(User)
@@ -779,8 +782,8 @@ def activate_staff(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
+    if current_user.role not in ["ops_admin", "super_admin"]:
+        raise HTTPException(status_code=403, detail="Operations admin only")
 
     staff = (
         db.query(User)
@@ -950,8 +953,9 @@ def cancel_sale(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403)
+    if current_user.role not in ["ops_admin", "super_admin"]:
+        raise HTTPException(status_code=403, detail="Operations admin only")
+
 
     sale = db.query(Sale).filter(Sale.id == sale_id).first()
     if not sale:
@@ -976,8 +980,9 @@ def cancel_expense(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403)
+    if current_user.role not in ["ops_admin", "super_admin"]:
+        raise HTTPException(status_code=403, detail="Operations admin only")
+
 
     expense = db.query(Expense).filter(Expense.id == expense_id).first()
     if not expense:
