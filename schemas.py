@@ -127,3 +127,9 @@ class ChangePasswordSchema(BaseModel):
     old_password: str
     new_password: str
 
+class CreateAdminSchema(BaseModel):
+    full_name: str
+    username: str
+    role: Literal["ops_admin", "accountant_admin"]
+
+
