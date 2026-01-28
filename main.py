@@ -47,7 +47,11 @@ def login(payload: LoginSchema, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.username == payload.username).first()
 
     if not user or not verify_password(payload.password, user.password_hash):
-        raise HTTPException(status_code=401, detail="Invalid credentials")
+            raise HTTPException(status_code=401, detail="Invalid credentials")
+
+# 🔒 ADD THIS BLOCK
+    if not user.is_active:
+            raise HTTPException(status_code=403, detail="Account is deactivated")
 
     token = create_access_token({"sub": user.id, "role": user.role})
 
